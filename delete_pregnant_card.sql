@@ -27,7 +27,8 @@ WITH resources_to_delete AS (
 	LEFT JOIN patient p ON (p.resource @@ logic_include(eoc.resource, 'patient', NULL) OR p.id = any(array(SELECT jsonb_path_query(eoc.resource, '$.patient.id') #>> '{}')))
 	LEFT JOIN flag f ON f.resource @@ logic_revinclude(p.resource, p.id, 'subject')
 		AND jsonb_path_query_first(f.resource, '$.code.coding ? (@.system == "urn:CodeSystem:r21.tag").code') #>> '{}' LIKE 'A06%'
-	WHERE eoc.id = 'dc171b39-ee5f-4a39-8aad-37ab138b8bba'
+		AND f.resource #>> '{period,start}' > '2021-01-01'
+	WHERE eoc.id = 'f3622217-30ce-404f-950c-9c22766c19c2'
 )
 , careteam_to_delete AS (
 	DELETE FROM careteam

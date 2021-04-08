@@ -23,7 +23,7 @@ SELECT pg_catalog.pg_relation_size
 
 SELECT *, pg_size_pretty(pg_relation_size(indexname::text))
 FROM pg_indexes 
-WHERE tablename = 'episodeofcare'
+WHERE tablename = 'observation'
 ORDER BY indexname;
 
 --- статистика использования индексов

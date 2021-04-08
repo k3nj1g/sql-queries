@@ -4,7 +4,7 @@ JOIN documentreference dr ON dr.resource @@ logic_revinclude(sr.resource, sr.id,
 JOIN patient p ON p.id = sr.resource #>> '{subject,id}'
 WHERE sr.resource @@ 'category.#.coding.#(system = "urn:CodeSystem:servicerequest-category" and code = "TMK")'  
 				  'and paymentType.code = "1"'::jsquery
-	AND sr.resource ->> 'authoredOn' BETWEEN '2020-01-01' AND '2021-01-01'
+	AND sr.resource ->> 'authoredOn' BETWEEN '2020-01-01' AND '2021-03-31'
 				  
 				  
 SELECT *
