@@ -28,10 +28,13 @@ SELECT *
 FROM integrationqueue i
 WHERE i.id = '70d382b7-cd2a-4f03-8ccd-150d30ad6096'
 
-SELECT i.resource ->> 'status', count(*)
+SELECT i.resource #>> '{payload,resourceType}'
+	, i.resource ->> 'status'
+	, count(*)
 FROM integrationqueue i
-WHERE i.ts > '2021-01-01'
-GROUP BY i.resource ->> 'status'
+WHERE i.ts > '2021-05-04'
+GROUP BY i.resource #>> '{payload,resourceType}', i.resource ->> 'status'
+ORDER BY 2, 3 DESC 
 
 SELECT count(*)
 FROM integrationqueue i

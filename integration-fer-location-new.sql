@@ -52,6 +52,7 @@ WHERE
 	)
 	
 --- covid-19-location ---
+--EXPLAIN ANALYSE 
 SELECT DISTINCT loc.id
 	, loc.txid
 	, loc.ts
@@ -62,7 +63,7 @@ SELECT DISTINCT loc.id
 FROM healthcareservice hcs
 JOIN schedulerule sch ON sch.resource #>> '{healthcareService,0,id}' = hcs.id
 	AND immutable_ts(coalesce(sch.resource #>> '{planningHorizon,end}', 'infinity')) >= '2021-01-19'
-	AND sch.resource @@ 'availableTime.#.channel.#($ = web)'::jsquery	
+	AND sch.resource -> 'availableTime' @@ '$.#.channel.#($="web")'::jsquery 	
 JOIN organization org ON org.id = sch.resource #>> '{mainOrganization,id}'
 	AND org.resource @@ 'identifier.#(value in ("1.2.643.5.1.13.13.12.2.21.1558","1.2.643.5.1.13.13.12.2.21.1534","1.2.643.5.1.13.13.12.2.21.1550","1.2.643.5.1.13.13.12.2.21.1530","1.2.643.5.1.13.13.12.2.21.1531","1.2.643.5.1.13.13.12.2.21.1525","1.2.643.5.1.13.13.12.2.21.1529","1.2.643.5.1.13.13.12.2.21.10843") and system="urn:identity:oid:Organization")'::jsquery
 JOIN "location" loc ON loc.id = sch.resource #>> '{location,id}'
@@ -70,6 +71,28 @@ LEFT JOIN organizationinfo org_i ON
 	org_i.id = loc.resource #>> '{mainOrganization,id}'
 WHERE hcs.resource @@ 'type.#.coding.#(system="urn:CodeSystem:service" and code="4000")'::jsquery
 
+--- female-location ---
+--EXPLAIN ANALYSE
+   SELECT DISTINCT 
+   	      "location".id,
+          "location".txid,
+          "location".ts,
+          "location".resource_type,
+          "location".cts,
+          "location".resource || jsonb_build_object('name',concat ("location".resource ->> 'name',CASE WHEN org_info.resource ->> 'shortName' IS NOT NULL THEN concat (' ',org_info.resource ->> 'shortName') END,NULL)) AS resource
+     FROM schedulerule sch
+     JOIN "location" "location" 
+       ON ("location".id = sch.resource #>> '{location,id}')
+	      AND "location".id NOT IN ('0ea5546d-ce10-4a48-9d10-a74f338ef452', '1b6c6807-62f0-499b-8055-d25715a33778', '1d50b994-efed-4335-936e-2724518d04f7')
+     JOIN organization org
+       ON (org.id = sch.resource #>> '{mainOrganization,id}'
+          AND org.resource @@ 'identifier.#(value = "1.2.643.5.1.13.13.12.2.21.1558" and system="urn:identity:oid:Organization")'::jsquery)
+LEFT JOIN organizationinfo org_info 
+       ON org_info.id = "location".resource #>> '{mainOrganization,id}'
+    WHERE coalesce(sch.resource #>> '{planningHorizon,end}','infinity') >= '2021-04-28' 
+    	  AND sch.resource -> 'availableTime' @@ '$.#.channel.#($="web")'::jsquery 
+	      AND "location".resource ->> 'name' ILIKE 'Женск%' 	      
+	      
 SELECT *
 FROM pg_indexes
 WHERE tablename = 'schedulerule'

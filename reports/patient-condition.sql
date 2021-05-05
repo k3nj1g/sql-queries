@@ -15,7 +15,8 @@ WHERE (obs.resource @@ 'category.#.coding.#(system="urn:CodeSystem:observation-c
 	AND daterange(cast(obs.resource #>> '{effective,Period,start}' AS date),cast(obs.resource #>> '{effective,Period,end}' AS date),'[]') @> current_date);
 
 --- second version with tmk
-SELECT  DISTINCT 
+--EXPLAIN ANALYZE 
+SELECT DISTINCT 
 	org.resource #>> '{alias,0}' AS org_name
 	, obs.id
 	, p.id AS patient_id
@@ -30,10 +31,16 @@ FROM observation obs
 INNER JOIN encounter enc ON enc.resource @@ logic_include (obs.resource,'encounter')
 INNER JOIN organization org ON org.resource @@ logic_include (enc.resource,'serviceProvider')
 INNER JOIN patient p ON p.resource @@ logic_include (obs.resource,'subject')
-LEFT JOIN servicerequest tmk ON tmk.resource @@ logic_revinclude(p.resource, p.id, 'subject', ' and category.#.coding.#(system = "urn:CodeSystem:servicerequest-category" and code = "TMK")')
-	AND tmk.cts BETWEEN (enc.resource #>> '{period,start}')::timestamptz AND COALESCE ((enc.resource #>> '{period,end}')::timestamptz, 'infinity')
-LEFT JOIN servicerequest ambulance ON (ambulance.resource @@ logic_include(tmk.resource, 'basedOn') OR ambulance.id = any(array(SELECT jsonb_path_query(tmk.resource, '$.basedOn.id') #>> '{}')))
+	LEFT JOIN servicerequest tmk ON tmk.resource -> 'subject' @@ logic_revinclude(p.resource, p.id)
+	AND tmk.resource @@ 'category.#.coding.#(system = "urn:CodeSystem:servicerequest-category" and code = "TMK")'::jsquery
+	AND CAST(tmk.resource ->> 'authoredOn' AS timestamptz) BETWEEN (enc.resource #>> '{period,start}')::timestamptz AND COALESCE ((enc.resource #>> '{period,end}')::timestamptz, 'infinity')	
+LEFT JOIN servicerequest ambulance ON ambulance.resource @@ logic_revinclude(tmk.resource, tmk.id, 'basedOn.#')
 	AND ambulance.resource @@ 'category.#.coding.#(system = "urn:CodeSystem:servicerequest-category" and code = "ambulance")'::jsquery
 LEFT JOIN task t ON t.resource @@ logic_revinclude(ambulance.resource, ambulance.id, 'basedOn.#')
 WHERE (obs.resource @@ 'category.#.coding.#(system="urn:CodeSystem:observation-category" and code="patient-condition") and value.CodeableConcept.coding.#(system="urn:CodeSystem:1.2.643.5.1.13.13.11.1006" and code in ("3","4","6"))'::jsquery 
 	AND daterange(cast(obs.resource #>> '{effective,Period,start}' AS date),cast(obs.resource #>> '{effective,Period,end}' AS date),'[]') @> current_date)
+	AND NOT jsonb_extract_path_text(jsonb_path_query_first(enc.resource, '$.contained.code.coding ? (@.system == "urn:CodeSystem:icd-10")'), 'code') IN ('U07.1', 'U07.2')
+	AND current_date < COALESCE ((enc.resource #>> '{period,end}')::timestamptz, 'infinity')
+	AND (NOT (org.resource -> 'address')::TEXT ILIKE '%Чебоксары%' AND NOT (org.resource -> 'address')::TEXT ILIKE '%Новочебоксарск%');
+	
+	

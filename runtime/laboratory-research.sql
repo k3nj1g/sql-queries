@@ -77,6 +77,7 @@ FROM
 				SELECT
 					jsonb_path_query("sr"."resource",
 					'$.specimen[*].id') #>> '{}'))))
+			ORDER BY "s".ts					
 			LIMIT 1) "specimen_subselect") AS "material",
 		(
 		SELECT
@@ -134,6 +135,7 @@ FROM
 						SELECT
 							jsonb_path_query("dr"."resource",
 							'$.specimen[*].id') #>> '{}'))))
+					ORDER BY "s".ts
 					LIMIT 1) "specimen_subselect") AS "material"
 			FROM
 				"diagnosticreport" "dr"
@@ -145,4 +147,4 @@ FROM
 	FROM
 		"servicerequest" "sr"
 	WHERE
-		"sr"."id" = '1ca3ab51-be2e-4f80-8a31-94246d67c9ca') "servicerequest_subselect"
+		"sr"."id" = 'cba7bbf4-a392-492f-a05e-149f0cd41d33') "servicerequest_subselect"
