@@ -1,5 +1,5 @@
 --SELECT pg_cancel_backend(PID);
-SELECT sum(numbackends) as openned_connections FROM pg_stat_database;
+--SELECT sum(numbackends) as openned_connections FROM pg_stat_database;
 
 SELECT count(pid) as count_of_long_queries 
 FROM pg_stat_activity 

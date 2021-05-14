@@ -15,15 +15,15 @@ FROM (
     ) AS all_tables
     ORDER BY total_size DESC
 ) AS pretty_sizes
-WHERE tablename = 'encounter';
+WHERE tablename = 'patient';
 
 SELECT pg_size_pretty(pg_relation_size('appointment__resource_gin_jsquery'));
 
 SELECT pg_catalog.pg_relation_size
 
-SELECT *, pg_size_pretty(pg_relation_size(indexname::text))
+SELECT *, pg_relation_size(indexname::text), pg_size_pretty(pg_relation_size(indexname::text))
 FROM pg_indexes 
-WHERE tablename = 'observation'
+WHERE tablename = 'patient'
 ORDER BY indexname;
 
 --- статистика использования индексов
@@ -51,7 +51,7 @@ JOIN
     idstat.relid = tabstat.relid
 WHERE
     indexdef !~* 'unique'
-    AND idstat.relname = 'encounter' 
+    AND idstat.relname = 'patient' 
 ORDER BY
     idstat.idx_scan DESC,
     pg_relation_size(indexrelid) DESC
