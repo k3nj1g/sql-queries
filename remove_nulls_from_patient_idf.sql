@@ -1,16 +1,5 @@
 --- check ---
-SELECT resource->'identifier'
-       , jsonb_array_length(resource->'identifier') 
-       , jsonb_set(resource, '{identifier}', 
-                 (WITH idfs AS (SELECT * FROM jsonb_array_elements(resource->'identifier'))
-                  SELECT jsonb_agg(value)
-                  FROM idfs
-                  WHERE NOT value ->> 'value' IN ('0000000000000000', '000-000-000 00')))
-       , jsonb_array_length(jsonb_set(resource, '{identifier}', 
-                 (WITH idfs AS (SELECT * FROM jsonb_array_elements(resource->'identifier'))
-                  SELECT jsonb_agg(value)
-                  FROM idfs
-                  WHERE NOT value ->> 'value' IN ('0000000000000000', '000-000-000 00'))) -> 'identifier') 
+SELECT id, jsonb_path_query_first (p.resource,'$.identifier[*] ? (@.system=="urn:identity:snils:Patient").value'), jsonb_path_query_first (p.resource,'$.identifier[*] ? (@.system=="urn:identity:enp:Patient").value')
 FROM patient p 
 WHERE p.resource @@ 'identifier.#.value in ("0000000000000000", "000-000-000 00")'::jsquery
 

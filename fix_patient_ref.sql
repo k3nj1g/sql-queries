@@ -106,11 +106,22 @@ JOIN allergyintolerance base ON base.id = pat_match.id
 --WHERE base.id = pat_match.id
 --RETURNING base.id    
 
-SELECT *
-FROM "condition" d 
-WHERE resource @@ 'subject.identifier.system = "urn:identity:insurance-gov:Patient"'::jsquery
-    AND NOT enp_valid(resource #>> '{subject,identifier,value}')
+SELECT c.ts, c.resource #>> '{identifier,0,value}', c.resource #>> '{identifier,0,system}', enc.resource #>> '{serviceProvider,display}'
+FROM "condition" c
+JOIN encounter enc ON enc.resource @@ logic_include(c.resource, 'encounter')
+WHERE c.resource @@ 'subject.identifier.system = "urn:identity:insurance-gov:Patient"'::jsquery
+    AND NOT enp_valid(c.resource #>> '{subject,identifier,value}')
+ORDER BY c.ts DESC 
     
+    
+SELECT *
+FROM integrationqueue i 
+WHERE ts > current_date
+    AND resource @@ 'payload.identifier.#.value = "1c5269e7-7d15-4e8c-b4b7-af78a09b653a"'::jsquery;
+
+SELECT *
+FROM pg_indexes
+WHERE tablename = 'integrationqueue'
     
 SELECT *
 FROM patient p 

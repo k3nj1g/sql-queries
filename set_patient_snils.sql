@@ -44,3 +44,5 @@ WHERE p.id = pat_snils.patient_id
 RETURNING p.id;
 
 VACUUM ANALYZE patient;
+
+SELECT to_jsonb('text'::text)
