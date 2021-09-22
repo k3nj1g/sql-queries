@@ -51,3 +51,20 @@ SET resource = jsonb_set(d.resource, '{effective}', tu.effective)
 FROM to_update tu 
 WHERE d.id = tu.id
 RETURNING d.id
+
+--- merge direct and logical refs for icl
+WITH to_update AS (
+    SELECT d.id, s.resource s_resource
+    FROM servicerequest s 
+    JOIN diagnosticreport d ON d.resource @@ logic_revinclude(s.resource, s.id, 'basedOn.#')
+    WHERE s.resource @@ 'identifier.#.system = "urn:source:icl:ServiceRequest"'::jsquery
+        AND NOT d.resource @@ 'basedOn.#.identifier = *'::jsquery
+)
+UPDATE diagnosticreport d
+SET resource = jsonb_set(d.resource
+                         , '{basedOn,0}'
+                        , d.resource #> '{basedOn,0}' || jsonb_build_object('type', 'ServiceRequest'
+                                                                          , 'identifier', jsonb_path_query_first(tu.s_resource, '$.identifier ? (@.system == "urn:source:icl:ServiceRequest")')))
+FROM to_update tu 
+WHERE d.id = tu.id
+RETURNING d.id
