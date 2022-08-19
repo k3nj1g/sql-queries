@@ -1,0 +1,14 @@
+sudo su - postgres -c "PATH=/opt/pgpro/std-14/bin/:$PATH initdb /data/_new --data-checksums -E 'UTF-8' --lc-collate='en_US.UTF-8' --lc-ctype='en_US.UTF-8'"
+sudo cp -f /data/postgresql.conf /data/_new
+sudo cp -f /data/pg_hba.conf /data/_new
+sudo mkdir /data/_new/_upgrade
+sudo chown -R postgres /data/_new/_upgrade
+
+sudo su - postgres sh -c "cd /data/_new/_upgrade; PATH=/opt/pgpro/std-14/bin/:$PATH pg_upgrade \
+--old-datadir '/data' --new-datadir '/data/_new' \
+--old-bindir '/opt/pgpro/std-12/bin/' --new-bindir '/opt/pgpro/std-14/bin/' \
+--link --check"
+
+shopt -s extglob
+sudo sh -c "cd /data; mv ./* ./_old/"
+sudo sh -c "cd /data; mv _old/_new/* /data"

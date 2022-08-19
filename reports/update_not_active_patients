@@ -1,0 +1,31 @@
+SELECT p.id
+FROM patient p
+LEFT JOIN patient d
+	ON (jsonb_path_query_first(d.resource, '$.identifier [*] ? (@.system == "urn:identity:snils:Patient").value') = jsonb_path_query_first(p.resource, '$.identifier [*] ? (@.system == "urn:identity:snils:Patient").value')
+	   AND d.resource #>> '{birthDate}' = p.resource #>> '{birthDate}'
+	   AND concat(d.resource#>>'{name,0,given,0}', ' ', d.resource#>>'{name,0,given,1}') = concat(p.resource#>>'{name,0,given,0}', ' ', p.resource#>>'{name,0,given,1}')
+	   AND COALESCE (d.resource ->> 'active', 'true') = 'true')
+WHERE p.resource @@ 'identifier.#(system="urn:identity:snils:Patient" and not value="000-000-000 00") 
+                     and identifier.#(system="urn:source:tfoms:Patient" and value=*)
+                     and active=false
+                     and not deceased.dateTime = *'::jsquery
+	AND d IS NULL 
+	
+WITH to_update AS (
+	SELECT p.id
+	FROM patient p
+	LEFT JOIN patient d
+		ON (jsonb_path_query_first(d.resource, '$.identifier [*] ? (@.system == "urn:identity:snils:Patient").value') = jsonb_path_query_first(p.resource, '$.identifier [*] ? (@.system == "urn:identity:snils:Patient").value')
+		   AND d.resource #>> '{birthDate}' = p.resource #>> '{birthDate}'
+		   AND concat(d.resource#>>'{name,0,given,0}', ' ', d.resource#>>'{name,0,given,1}') = concat(p.resource#>>'{name,0,given,0}', ' ', p.resource#>>'{name,0,given,1}')
+		   AND COALESCE (d.resource ->> 'active', 'true') = 'true')
+	WHERE p.resource @@ 'identifier.#(system="urn:identity:snils:Patient" and not value="000-000-000 00") 
+	                     and identifier.#(system="urn:source:tfoms:Patient" and value=*)
+	                     and active=false
+	                     and not deceased.dateTime = *'::jsquery
+		AND d IS NULL
+)
+UPDATE patient p
+SET resource = jsonb_set(p.resource, '{active}', 'true'::jsonb)
+FROM to_update tu
+WHERE p.id = tu.id

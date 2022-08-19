@@ -1,0 +1,170 @@
+EXPLAIN ANALYZE 
+SELECT row_to_json("patient_subselect".*) AS "patient"
+FROM (SELECT "patient"."id" AS "id",
+             "patient"."resource_type" AS "resource_type",
+             "patient"."status" AS "status",
+             "patient"."ts" AS "ts",
+             "patient"."txid" AS "txid",
+             ("patient".resource || jsonb_build_object('id',"patient".id,'resourceType',"patient".resource_type)) AS "resource",
+             (SELECT json_agg(row_to_json("documentreference_subselect".*)) AS "documentreference"
+              FROM (SELECT "documentreference"."id" AS "id",
+                           "documentreference"."resource_type" AS "resource_type",
+                           "documentreference"."status" AS "status",
+                           "documentreference"."ts" AS "ts",
+                           "documentreference"."txid" AS "txid",
+                           ("documentreference".resource || jsonb_build_object('id',"documentreference".id,'resourceType',"documentreference".resource_type)) AS "resource"
+                    FROM "documentreference"
+                    WHERE ("documentreference"."resource" @@ logic_revinclude("patient"."resource","patient"."id",'subject',' and (not status = "superseded") and (not docStatus = "superseded") and (not category.#.coding.#(system= "urn:CodeSystem:medrecord-group" and code = "TMK-service-request-attachment" or code = "result-mse" or code = "referral-mse"))') 
+                        AND coalesce(documentreference.resource ->> 'active','true') = 'true' 
+                        AND "documentreference"."resource" @@ 'type.coding.#.code = "ehokg_rkd"'::jsquery 
+                        AND (SELECT mkb_10
+                             FROM unnest(knife_extract_text (documentreference.resource,'[["extension",{"url":"urn:extension:diagnosis"},"extension",{"url":"mkb"},"valueCodeableConcept","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]')) mkb_10
+                             WHERE mkb_10 SIMILAR TO '(B2[0-4])%'
+                             LIMIT 1) IS NULL 
+                        AND (SELECT mkb_10
+                             FROM unnest(knife_extract_text (documentreference.resource,'[["extension",{"url":"urn:extension:diagnosis"},"extension",{"url":"mkb"},"valueCodeableConcept","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]')) mkb_10
+                             WHERE mkb_10 SIMILAR TO '(A5[0-469]|A6[03]|Z22.[48]|Z11.3|Z71.2|Z86.1|Z20.2|N89|N34.1|B37.3|B37.4)%'
+                             LIMIT 1) IS NULL 
+                        AND (SELECT mkb_10
+                             FROM unnest(knife_extract_text (documentreference.resource,'[["extension",{"url":"urn:extension:diagnosis"},"extension",{"url":"mkb"},"valueCodeableConcept","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]')) mkb_10
+                             WHERE mkb_10 SIMILAR TO '(A1[5-9]|B90)%'
+                             LIMIT 1) IS NULL 
+                        AND (SELECT "mkb_10"
+                             FROM unnest(knife_extract_text (documentreference.resource,'[["extension",{"url":"urn:extension:diagnosis"},"extension",{"url":"mkb"},"valueCodeableConcept","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]')) "mkb_10"
+                             WHERE mkb_10 SIMILAR TO '(F[0-9]+)%'
+                             LIMIT 1) IS NULL)) "documentreference_subselect") AS "ehokgRkd",
+             (SELECT json_agg(row_to_json("procedure_subselect".*)) AS "procedure"
+              FROM (SELECT "procedure"."id" AS "id",
+                           "procedure"."resource_type" AS "resource_type",
+                           "procedure"."status" AS "status",
+                           "procedure"."ts" AS "ts",
+                           "procedure"."txid" AS "txid",
+                           ("procedure".resource || jsonb_build_object('id',"procedure".id,'resourceType',"procedure".resource_type)) AS "resource",
+                           (SELECT json_agg(row_to_json("documentreference_subselect".*)) AS "documentreference"
+                            FROM (SELECT "pdr"."id" AS "id",
+                                         "pdr"."resource_type" AS "resource_type",
+                                         "pdr"."status" AS "status",
+                                         "pdr"."ts" AS "ts",
+                                         "pdr"."txid" AS "txid",
+                                         ("pdr".resource || jsonb_build_object('id',"pdr".id,'resourceType',"pdr".resource_type)) AS "resource"
+                                  FROM "documentreference" "pdr"
+                                  WHERE "pdr"."resource" @@ logic_include("procedure"."resource",'report')
+                                  LIMIT 10) "documentreference_subselect") AS "report"
+                    FROM "procedure"
+                    WHERE ("procedure"."resource" @@ logic_revinclude("patient"."resource","patient"."id",'subject') AND "procedure"."resource" @@ 'code.coding.#(system = "urn:CodeSystem:operation-code" and (code = "Z88.5" or code = "Z88.50" or code = "Z88.51" or code = "Z88.52" or code = "Z88.53" or code = "Z88.54" or code = "Z88.55" or code = "Z88.56" or code = "Z88.57" or code = "Z88.58" or code = "Z36.10" or code = "Z36.11" or code = "Z36.12" or code = "Z36.13" or code = "Z36.14" or code = "Z36.15" or code = "Z36.16" or code = "Z36.19" or code = "Z36.01" or code = "Z36.02" or code = "Z36.03" or code = "Z36.04" or code = "Z36.05" or code = "Z36.09" or code = "Z37.34"))'::jsquery)
+                    LIMIT 6) "procedure_subselect") AS "procedure",
+             (SELECT json_agg(row_to_json("condition_subselect".*)) AS "condition"
+              FROM (SELECT "condition"."id" AS "id",
+                           "condition"."resource_type" AS "resource_type",
+                           "condition"."status" AS "status",
+                           "condition"."ts" AS "ts",
+                           "condition"."txid" AS "txid",
+                           ("condition".resource || jsonb_build_object('id',"condition".id,'resourceType',"condition".resource_type)) AS "resource"
+                    FROM (SELECT "res"."agg" ->> 'id' AS "id",
+                                 "res"."agg" ->> 'txid' AS "txid",
+                                 cast("res"."agg" ->> 'ts' AS "timestamptz") AS "ts",
+                                 "res"."agg" ->> 'resource_type' AS "resource_type",
+                                 "res"."agg" ->> 'status' AS "status",
+                                 "res"."agg" -> 'resource' AS "resource",
+                                 cast("res"."agg" ->> 'cts' AS "timestamptz") AS "cts"
+                          FROM ( WITH "grouped"
+                          AS
+                          (SELECT jsonb_agg(row_to_json("cond".*)) AS "agg"
+                          FROM "condition" "cond"
+                          WHERE (("cond"."resource" @@ logic_revinclude("patient"."resource","patient"."id",'subject') 
+                            AND (SELECT mkb
+                                 FROM unnest(knife_extract_text (cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]')) mkb
+                                 WHERE mkb SIMILAR TO 'F%'
+                                    OR    mkb SIMILAR TO 'F1%'
+                                    OR    mkb SIMILAR TO '(B2[0-4])%'
+                                    OR    mkb SIMILAR TO '(A5[0-469]|A6[03]|Z22.[48]|Z11.3|Z71.2|Z86.1|Z20.2|N89|N34.1|B37.3|B37.4)%'
+                                    OR    mkb SIMILAR TO '(A1[5-9]|B90|R76.1|Z20.1)%'
+                                    LIMIT 1) IS NULL 
+                            AND ((((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I20' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I25') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I25%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I21' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I22') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I22%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I05' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I09') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I09%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I34' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I37') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I37%')) OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I25.8' OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I47' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I49') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I49%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I30' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I33') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I33%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I38' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I41') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I41%')) OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I51.4' OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I26' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I28') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I28%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I42' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I43') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I43%')) OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I51.5' OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I51.7' OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I44' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I46') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I46%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I60' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I62') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I62%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I63' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I64') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I64%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I65' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I66') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I66%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I67' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I69') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I69%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'G46' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'G46') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'G46%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I70' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I70') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I70%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I71' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I72') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I72%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I74' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I74') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I74%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I80' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I83') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I83%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I85' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I87') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I87%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'G45' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'G45') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'G45%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'Q20' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'Q28') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'Q28%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I52' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I52') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I52%')) OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I51.0' OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I51.1' OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I51.2' OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I51.3' OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I51.6' OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I51.8' OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I51.9' OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I73' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I73') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I73%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I77' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I79') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I79%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I88' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I89') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I89%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I95' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I95') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I95%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I97' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I99') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I99%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I00' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I02') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I02%')) OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I20.0' OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I21' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I22') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I22%')) OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I24.0' OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I24.8' OR (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] = 'I24.9' OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I60' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I64') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I64%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'I69' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'I69') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'I69%')) OR (((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] >= 'G45' AND (knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] <= 'G46') OR ((knife_extract_text(cond.resource,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'))[1] LIKE 'G46%')))) AND lower("patient"."resource" #>> '{name,0,given,0}') = CASE WHEN "cond"."resource" #>> '{subject,identifier,value}' = '0000000000000000' THEN lower(split_part(split_part("cond"."resource" #>> '{subject,display}',',',1),' ',2)) ELSE lower("patient"."resource" #>> '{name,0,given,0}') END AND coalesce(lower("patient"."resource" #>> '{name,0,given,1}'),'') = CASE WHEN "cond"."resource" #>> '{subject,identifier,value}' = '0000000000000000' THEN lower(split_part(split_part("cond"."resource" #>> '{subject,display}',',',1),' ',3)) ELSE coalesce(lower("patient"."resource" #>> '{name,0,given,1}'),'') END AND cast("patient"."resource" ->> 'birthDate' AS "date") = CASE WHEN "cond"."resource" #>> '{subject,identifier,value}' = '0000000000000000' THEN to_date(split_part("cond"."resource" #>> '{subject,display}',',',2),'DD.mm.YYYY') ELSE cast("patient"."resource" ->> 'birthDate' AS "date") END)
+                          GROUP BY knife_extract_text(cond.resource::jsonb,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'::jsonb))
+                          SELECT (SELECT "grouped_agg"
+                                  FROM jsonb_array_elements("grouped"."agg") "grouped_agg"
+                                  ORDER BY "grouped_agg" #>> '{resource,recordedDate}' DESC NULLS last LIMIT 1)
+                          AS "agg"
+                          FROM "grouped") "res") "condition"
+                    ORDER BY knife_extract_text(condition.resource::jsonb,'[["code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'::jsonb) LIMIT NULL) "condition_subselect") AS "condition",
+             (SELECT json_agg(row_to_json("encounter_subselect".*)) AS "encounter"
+              FROM (SELECT "encounter"."id" AS "id",
+                           "encounter"."resource_type" AS "resource_type",
+                           "encounter"."status" AS "status",
+                           "encounter"."ts" AS "ts",
+                           "encounter"."txid" AS "txid",
+                           ("encounter".resource || jsonb_build_object('id',"encounter".id,'resourceType',"encounter".resource_type)) AS "resource",
+                           (SELECT json_agg(row_to_json("documentreference_subselect".*)) AS "documentreference"
+                            FROM (SELECT "documentreference"."id" AS "id",
+                                         "documentreference"."resource_type" AS "resource_type",
+                                         "documentreference"."status" AS "status",
+                                         "documentreference"."ts" AS "ts",
+                                         "documentreference"."txid" AS "txid",
+                                         ("documentreference".resource || jsonb_build_object('id',"documentreference".id,'resourceType',"documentreference".resource_type)) AS "resource"
+                                  FROM "documentreference"
+                                  WHERE ((SELECT mkb
+                                          FROM unnest(knife_extract_text (documentreference.resource,'[["extension",{"url":"urn:extension:diagnosis"},"extension",{"url":"mkb"},"valueCodeableConcept","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]')) mkb
+                                          WHERE mkb SIMILAR TO 'F%'
+                                          OR    mkb SIMILAR TO 'F1%'
+                                          OR    mkb SIMILAR TO '(B2[0-4])%'
+                                          OR    mkb SIMILAR TO '(A5[0-469]|A6[03]|Z22.[48]|Z11.3|Z71.2|Z86.1|Z20.2|N89|N34.1|B37.3|B37.4)%'
+                                          OR    mkb SIMILAR TO '(A1[5-9]|B90|R76.1|Z20.1)%'
+                                          LIMIT 1) IS NULL AND "documentreference"."resource" @@ logic_revinclude("encounter"."resource","encounter"."id",'context.encounter.#') AND coalesce(documentreference.resource ->> 'active','true') = 'true')
+                                  ORDER BY cast("documentreference"."resource" ->> 'date' AS "timestamptz") DESC NULLS last LIMIT 6) "documentreference_subselect") AS "documentReference"
+                    FROM "encounter"
+                    WHERE ("encounter"."resource" @@ logic_revinclude("patient"."resource","patient"."id",'subject') 
+                        AND (SELECT mkb
+                             FROM unnest(knife_extract_text (encounter.resource,'[["contained",{},"code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]')) mkb
+                             WHERE mkb SIMILAR TO 'F%'
+                             OR    mkb SIMILAR TO 'F1%'
+                             OR    mkb SIMILAR TO '(B2[0-4])%'
+                             OR    mkb SIMILAR TO '(A5[0-469]|A6[03]|Z22.[48]|Z11.3|Z71.2|Z86.1|Z20.2|N89|N34.1|B37.3|B37.4)%'
+                             OR    mkb SIMILAR TO '(A1[5-9]|B90|R76.1|Z20.1)%'
+                             LIMIT 1) IS NULL 
+                        AND ("encounter"."resource" @@ 'serviceType.coding.#((system = "urn:CodeSystem:oms.v002-care-profile" and (code = "17" or code = "29" or code = "81")) or (system = "urn:CodeSystem:health-care-profile" and ((code = "10" and display = "Кардиология") or (code = "95" and display = "Кардиохирургия") or (code = "35" and display = "Сердечно-сосудистая хирургия") or (code = "90" and display = "Детская кардиология"))))'::jsquery 
+                             OR (SELECT "enc_code"
+                                 FROM unnest(knife_extract_text (encounter.resource::jsonb,'[["contained",{},"code","coding",{"system":"urn:CodeSystem:icd-10"},"code"]]'::jsonb)) "enc_code"
+                                 WHERE ((("enc_code" >= 'I20' AND "enc_code" < 'I25') OR ("enc_code" LIKE 'I25%')) OR (("enc_code" >= 'I21' AND "enc_code" < 'I22') OR ("enc_code" LIKE 'I22%')) OR (("enc_code" >= 'I05' AND "enc_code" < 'I09') OR ("enc_code" LIKE 'I09%')) OR (("enc_code" >= 'I34' AND "enc_code" < 'I37') OR ("enc_code" LIKE 'I37%')) OR "enc_code" = 'I25.8' OR (("enc_code" >= 'I47' AND "enc_code" < 'I49') OR ("enc_code" LIKE 'I49%')) OR (("enc_code" >= 'I30' AND "enc_code" < 'I33') OR ("enc_code" LIKE 'I33%')) OR (("enc_code" >= 'I38' AND "enc_code" < 'I41') OR ("enc_code" LIKE 'I41%')) OR "enc_code" = 'I51.4' OR (("enc_code" >= 'I26' AND "enc_code" < 'I28') OR ("enc_code" LIKE 'I28%')) OR (("enc_code" >= 'I42' AND "enc_code" < 'I43') OR ("enc_code" LIKE 'I43%')) OR "enc_code" = 'I51.5' OR "enc_code" = 'I51.7' OR (("enc_code" >= 'I44' AND "enc_code" < 'I46') OR ("enc_code" LIKE 'I46%')) OR (("enc_code" >= 'I60' AND "enc_code" < 'I62') OR ("enc_code" LIKE 'I62%')) OR (("enc_code" >= 'I63' AND "enc_code" < 'I64') OR ("enc_code" LIKE 'I64%')) OR (("enc_code" >= 'I65' AND "enc_code" < 'I66') OR ("enc_code" LIKE 'I66%')) OR (("enc_code" >= 'I67' AND "enc_code" < 'I69') OR ("enc_code" LIKE 'I69%')) OR (("enc_code" >= 'G46' AND "enc_code" < 'G46') OR ("enc_code" LIKE 'G46%')) OR (("enc_code" >= 'I70' AND "enc_code" < 'I70') OR ("enc_code" LIKE 'I70%')) OR (("enc_code" >= 'I71' AND "enc_code" < 'I72') OR ("enc_code" LIKE 'I72%')) OR (("enc_code" >= 'I74' AND "enc_code" < 'I74') OR ("enc_code" LIKE 'I74%')) OR (("enc_code" >= 'I80' AND "enc_code" < 'I83') OR ("enc_code" LIKE 'I83%')) OR (("enc_code" >= 'I85' AND "enc_code" < 'I87') OR ("enc_code" LIKE 'I87%')) OR (("enc_code" >= 'G45' AND "enc_code" < 'G45') OR ("enc_code" LIKE 'G45%')) OR (("enc_code" >= 'Q20' AND "enc_code" < 'Q28') OR ("enc_code" LIKE 'Q28%')) OR (("enc_code" >= 'I52' AND "enc_code" < 'I52') OR ("enc_code" LIKE 'I52%')) OR "enc_code" = 'I51.0' OR "enc_code" = 'I51.1' OR "enc_code" = 'I51.2' OR "enc_code" = 'I51.3' OR "enc_code" = 'I51.6' OR "enc_code" = 'I51.8' OR "enc_code" = 'I51.9' OR (("enc_code" >= 'I73' AND "enc_code" < 'I73') OR ("enc_code" LIKE 'I73%')) OR (("enc_code" >= 'I77' AND "enc_code" < 'I79') OR ("enc_code" LIKE 'I79%')) OR (("enc_code" >= 'I88' AND "enc_code" < 'I89') OR ("enc_code" LIKE 'I89%')) OR (("enc_code" >= 'I95' AND "enc_code" < 'I95') OR ("enc_code" LIKE 'I95%')) OR (("enc_code" >= 'I97' AND "enc_code" < 'I99') OR ("enc_code" LIKE 'I99%')) OR (("enc_code" >= 'I00' AND "enc_code" < 'I02') OR ("enc_code" LIKE 'I02%')) OR "enc_code" = 'I20.0' OR (("enc_code" >= 'I21' AND "enc_code" < 'I22') OR ("enc_code" LIKE 'I22%')) OR "enc_code" = 'I24.0' OR "enc_code" = 'I24.8' OR "enc_code" = 'I24.9' OR (("enc_code" >= 'I60' AND "enc_code" < 'I64') OR ("enc_code" LIKE 'I64%')) OR (("enc_code" >= 'I69' AND "enc_code" < 'I69') OR ("enc_code" LIKE 'I69%')) OR (("enc_code" >= 'G45' AND "enc_code" < 'G46') OR ("enc_code" LIKE 'G46%')))
+                                 LIMIT 1) IS NOT NULL))
+                    ORDER BY cast("encounter"."resource" #>> '{period,start}' AS "timestamptz") DESC NULLS first LIMIT 6) "encounter_subselect") AS "encounter",
+             (SELECT json_agg(row_to_json("servicerequest_subselect".*)) AS "servicerequest"
+              FROM (SELECT "servicerequest"."id" AS "id",
+                           "servicerequest"."resource_type" AS "resource_type",
+                           "servicerequest"."status" AS "status",
+                           "servicerequest"."ts" AS "ts",
+                           "servicerequest"."txid" AS "txid",
+                           ("servicerequest".resource || jsonb_build_object('id',"servicerequest".id,'resourceType',"servicerequest".resource_type)) AS "resource",
+                           (SELECT row_to_json("diagnosticreport_subselect".*) AS "diagnosticreport"
+                            FROM (SELECT "diagnosticreport"."id" AS "id",
+                                         "diagnosticreport"."resource_type" AS "resource_type",
+                                         "diagnosticreport"."status" AS "status",
+                                         "diagnosticreport"."ts" AS "ts",
+                                         "diagnosticreport"."txid" AS "txid",
+                                         ("diagnosticreport".resource || jsonb_build_object('id',"diagnosticreport".id,'resourceType',"diagnosticreport".resource_type)) AS "resource"
+                                  FROM "diagnosticreport"
+                                  WHERE diagnosticreport.resource @@ logic_revinclude(servicerequest.resource, servicerequest.id, 'basedOn.#')
+                                  --(diagnosticreport.resource #>> '{basedOn,0,identifier,value}') ilike ANY (knife_extract_text(servicerequest.resource,'[["identifier",{},"value"]]'))
+                                  LIMIT 1) "diagnosticreport_subselect") AS "diagnosticReport"
+                    FROM "servicerequest"
+                    WHERE ((SELECT mkb
+                            FROM unnest(knife_extract_text (servicerequest.resource,'[["reasonCode","coding",{"system":"urn:CodeSystem:icd-10"},"code"],["reasonReference","identifier",{"system":"urn:CodeSystem:icd-10"},"value"]]')) mkb
+                            WHERE mkb SIMILAR TO 'F%'
+                            OR    mkb SIMILAR TO 'F1%'
+                            OR    mkb SIMILAR TO '(B2[0-4])%'
+                            OR    mkb SIMILAR TO '(A5[0-469]|A6[03]|Z22.[48]|Z11.3|Z71.2|Z86.1|Z20.2|N89|N34.1|B37.3|B37.4)%'
+                            OR    mkb SIMILAR TO '(A1[5-9]|B90|R76.1|Z20.1)%'
+                            LIMIT 1) IS NULL AND "servicerequest"."resource" @@ logic_revinclude("patient"."resource","patient"."id",'subject') AND "servicerequest"."resource" @@ 'category.#.coding.#(system= "urn:CodeSystem:servicerequest-category" and code = "Referral-IMI")'::jsquery AND "servicerequest"."resource" @@ 'code.coding.#(system = "urn:CodeSystem:diagnostic-group" and (code = "10" or code = "70"))'::jsquery AND "servicerequest"."resource" @@ 'code.coding.#(system = "urn:CodeSystem:diagnostic-tests" and (code = "7001894" or code = "7001910" or code = "7001928" or code = "7001936" or code = "7001944"))'::jsquery)
+                    ORDER BY cast("servicerequest"."resource" ->> 'authoredOn' AS "timestamptz") DESC NULLS first LIMIT 6) "servicerequest_subselect") AS "instrumental",
+             (SELECT json_agg(row_to_json("observation_subselect".*)) AS "observation"
+              FROM (SELECT "ob"."id" AS "id",
+                           "ob"."resource_type" AS "resource_type",
+                           "ob"."status" AS "status",
+                           "ob"."ts" AS "ts",
+                           "ob"."txid" AS "txid",
+                           ("ob".resource || jsonb_build_object('id',"ob".id,'resourceType',"ob".resource_type)) AS "resource"
+                    FROM "observation" "ob"
+                    WHERE ("ob"."resource" @@ logic_revinclude("patient"."resource","patient"."id",'subject') AND "ob"."resource" ->> 'status' <> 'cancelled')) "observation_subselect") AS "observation"
+      FROM "patient"
+      WHERE "patient"."id" = '009cb4d4-260f-4699-bcf3-929c37dfbf43') "patient_subselect"
+LIMIT 100 OFFSET 0
