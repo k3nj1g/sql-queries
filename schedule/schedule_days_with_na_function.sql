@@ -1,4 +1,7 @@
-CREATE FUNCTION schedule_days(sch_id text) RETURNS jsonb AS $$
+CREATE OR REPLACE FUNCTION public.schedule_days_with_na(sch_id text)
+ RETURNS jsonb
+ LANGUAGE sql
+AS $function$
 SELECT (
   WITH global_schedule AS (
     SELECT id,
@@ -15,9 +18,18 @@ SELECT (
                         WHERE coalesce(cast(not_available #>> '{during,end}' AS timestamp),'infinity') >= current_timestamp::timestamp)
                        ,'[]')) AS resource
     FROM scheduleruleglobal
-    LIMIT 1)
-  , init_interval AS 
-    (SELECT (tsrange (timezone('Europe/Moscow',current_timestamp), (cast((timezone ('Europe/Moscow',current_timestamp) + '2 week'::interval) AS date) + '1 day'::interval)) * 
+    LIMIT 1),
+  not_available AS (
+    SELECT jsonb_array_elements(gs.resource->'notAvailable') -> 'during' value
+    FROM global_schedule gs
+    UNION
+    SELECT jsonb_array_elements(s.resource->'notAvailable') -> 'during' value
+   ),
+  not_available_range as (
+    SELECT daterange(CAST(not_available.value ->> 'start' AS date), CAST((CAST(not_available.value ->> 'end' AS timestamp) + INTERVAL '1 minute') AS date)) AS "range" 
+    FROM not_available),
+  init_interval AS 
+    (SELECT (tsrange (timezone('Europe/Moscow',current_timestamp), (cast((timezone ('Europe/Moscow',current_timestamp) + CAST(concat(CAST(resource #>> '{planningActive,quantity}' AS text), ' week') AS interval)) AS date) + '1 day'::interval)) * 
             tsrange (CAST(resource #>> '{planningHorizon,start}' AS timestamp), CAST(resource #>> '{planningHorizon,end}' AS timestamp))) AS "interval")
   , series_of_day AS 
   (SELECT cast(generate_series
@@ -34,16 +46,20 @@ SELECT (
     FROM jsonb_array_elements(resource->'availableTime') t
   )
   , av_t_w_day AS (
-    SELECT jsonb_build_object('start', t->>'availableStartTime', 'end', t->>'availableEndTime', 'channel', t->'channel', 'day-of-week', td, 'parity', t->'parity') days
+    SELECT jsonb_build_object('day-of-week', td, 'parity', t->'parity') days
     FROM av_t, jsonb_array_elements(t->'daysOfWeek') td
   )
   , available_time AS 
-  (SELECT jsonb_build_object('day', "day", 'channel', days->'channel') "day"
+  (SELECT jsonb_build_object('day', "day") "day"
    FROM select_day_of_week "day",
         av_t_w_day
    WHERE ((days ->> 'parity' IS NULL OR "day".parity = days ->> 'parity') AND "day".day_of_week = days ->> 'day-of-week'))
-  SELECT jsonb_agg("day") FROM available_time
-)        c
+  SELECT jsonb_agg("day") 
+  FROM available_time av_t
+  WHERE NOT EXISTS (SELECT *
+                    FROM not_available_range na
+                    WHERE na."range" @> (av_t."day"->>'day')::date)
+) c
 FROM schedulerule s 
 WHERE id = sch_id
-$$ LANGUAGE SQL;
+$function$;
