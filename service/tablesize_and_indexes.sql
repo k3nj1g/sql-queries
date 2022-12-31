@@ -38,7 +38,7 @@ FROM (
     ORDER BY total_size DESC
 ) AS pretty_sizes
 join pg_tables pt
-  on pt.tablename = pretty_sizes.tablename and pt.schemaname = 'public'
+  on pt.tablename = pretty_sizes.tablename --and pt.schemaname = 'public'
 order by pretty_sizes.table_size desc;
 
 --- size with row estimated ---

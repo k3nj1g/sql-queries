@@ -1,16 +1,16 @@
 SELECT *
 FROM integrationqueue_archive i 
---ORDER BY ts  
-LIMIT 1
-
-SELECT * FROM "integrationqueue" WHERE "id" = '4a7eabee-acf6-417f-a193-90f0fcdcd0d5'
+ORDER BY ts
+LIMIT 1;
 
 SELECT *
-FROM pg_indexes
-WHERE tablename = 'integrationqueue'
+FROM "integrationqueue"
+-- WHERE resource @@ 'payload.resourceType="Patient"'::jsquery
+ORDER BY ts
+LIMIT 1;
 
 INSERT INTO integrationqueue_archive
-(SELECT * FROM integrationqueue i WHERE resource @@ 'payload.resourceType="Patient"'::jsquery)
+(SELECT * FROM integrationqueue i WHERE resource @@ 'payload.resourceType="Patient"'::jsquery);
 
 --DO
 --$do$

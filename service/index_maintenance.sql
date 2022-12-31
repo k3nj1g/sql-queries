@@ -36,6 +36,7 @@ FROM
     LEFT JOIN pg_stat_all_indexes psai ON i.indexrelid = psai.indexrelid
 WHERE
     t.schemaname NOT IN ('pg_catalog', 'information_schema')
+    AND t.tablename = 'observation'
 ORDER BY 1, 2;
 
 --Duplicate indexes
@@ -49,3 +50,7 @@ FROM (
 GROUP BY key HAVING count(*)>1
 ORDER BY sum(pg_relation_size(idx)) DESC;
 
+--Check index definition
+SELECT *
+FROM pg_indexes
+WHERE tablename = 'observation';
