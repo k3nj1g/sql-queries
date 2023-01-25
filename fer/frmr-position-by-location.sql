@@ -12,6 +12,7 @@ WITH pre AS (
                 '$.type.coding ? (@.system=="urn:CodeSystem:service").code'
             )#>>'{}'
         ) AS service
+        , sch.id
     FROM schedulerule AS sch
         INNER JOIN practitionerrole AS prr ON (
             prr.id = (
@@ -31,14 +32,14 @@ WITH pre AS (
                     (sch.resource#>>'{planningHorizon,end}'),
                     'infinity'
                 )
-            ) >= CAST('2022-12-08' AS timestamp)
+            ) >= CAST('2023-01-25' AS timestamp)
         )
         AND (
-            sch.resource @@ 'availableTime.#.channel.#="web" and location.id="dc2acdbf-037b-4779-b25e-3578f6c5656d"'::jsquery
+            sch.resource @@ 'availableTime.#.channel.#="web" and location.id="3adf1b1a-9b61-4bf4-bf56-ff69645ce9fd"'::jsquery
         )
 )
-SELECT pre.*,
-    TO_JSONB(concept.*) AS concept
+SELECT pre.*
+    , TO_JSONB(concept.*) AS concept
 FROM pre
     INNER JOIN concept ON (
         (resource#>>'{system}') = 'urn:CodeSystem:frmr.position'

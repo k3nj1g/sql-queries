@@ -15,7 +15,7 @@ SELECT (
                                   WHERE cast(replacement ->> 'date' AS timestamp) >= current_timestamp::timestamp)
                                  ,'[]'))
              ,'{notAvailable}'::text[]
-             ,coalesce((SELECT jsonb_agg(not_available) AS not_available 
+             , coalesce((SELECT jsonb_agg(not_available) AS not_available   
                         FROM jsonb_array_elements(resource -> 'notAvailable') not_available 
                         WHERE coalesce(cast(not_available #>> '{during,end}' AS timestamp),'infinity') >= current_timestamp::timestamp)
                        ,'[]')) AS resource
@@ -31,7 +31,7 @@ SELECT (
     SELECT tsrange(CAST(not_available.value ->> 'start' AS timestamp), CAST((CAST(not_available.value ->> 'end' AS timestamp) + INTERVAL '1 minute') AS timestamp)) AS "range" 
     FROM not_available)
   , init_interval AS 
-    (SELECT (tsrange(timezone('Europe/Moscow', "start"), (cast((timezone ('Europe/Moscow', "end") + CAST(concat(CAST(resource #>> '{planningActive,quantity}' AS text), ' week') AS interval)) AS date) + '1 day'::interval)) * 
+    (SELECT (tsrange(timezone('Europe/Moscow', "start"), timezone('Europe/Moscow', "end")) * 
             tsrange(CAST(resource #>> '{planningHorizon,start}' AS timestamp), CAST(resource #>> '{planningHorizon,end}' AS timestamp))) AS "interval")
   , series_of_day AS 
   (SELECT cast(generate_series
@@ -101,5 +101,15 @@ SELECT (
 ) c
 FROM schedulerule s 
 WHERE id = sch_id
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.schedule_slots(sch_id text, "start" date, "end" date, channel_arg text)
+ RETURNS jsonb
+ LANGUAGE sql
+AS $function$
+  SELECT jsonb_agg(slot.*)
+  FROM jsonb_array_elements(schedule_slots(sch_id, "start", "end")) slot
+  WHERE slot -> 'channel' ? channel_arg
 $function$
 ;
