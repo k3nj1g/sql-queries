@@ -30,9 +30,10 @@ SELECT (
   , not_available_range as (
     SELECT tsrange(CAST(not_available.value ->> 'start' AS timestamp), CAST((CAST(not_available.value ->> 'end' AS timestamp) + INTERVAL '1 minute') AS timestamp)) AS "range" 
     FROM not_available)
-  , init_interval AS 
-    (SELECT (tsrange(timezone('Europe/Moscow', "start"), (cast((timezone ('Europe/Moscow', "end") + CAST(concat(CAST(resource #>> '{planningActive,quantity}' AS text), ' week') AS interval)) AS date) + '1 day'::interval)) * 
-            tsrange(CAST(resource #>> '{planningHorizon,start}' AS timestamp), CAST(resource #>> '{planningHorizon,end}' AS timestamp))) AS "interval")
+  , init_interval(interval) AS 
+    (SELECT tsrange(timezone('Europe/Moscow',current_timestamp), (cast((timezone('Europe/Moscow',current_timestamp) + CAST(concat(CAST(resource #>> '{planningActive,quantity}' AS text), ' week') AS interval)) AS date) + '1 day'::interval)) 
+            * tsrange(CAST(resource #>> '{planningHorizon,start}' AS timestamp), CAST(resource #>> '{planningHorizon,end}' AS timestamp))
+            * tsrange("start","end")) 
   , series_of_day AS 
   (SELECT cast(generate_series
                 (lower((SELECT "interval" FROM init_interval LIMIT 1))

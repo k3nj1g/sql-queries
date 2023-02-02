@@ -47,7 +47,7 @@ WITH schedules AS (
     , sum(jsonb_array_length((schedule_slots(sch_id, '2023-01-01', '2023-01-20')))) slot_all_01_23
   FROM schedules
   GROUP BY position)
-SELECT position
+SELECT *
   , to_char((100 * slot_web_12_22 / slot_all_12_22::float), 'fm99D00%') "12_2022"
   , to_char((100 * slot_web_01_23 / slot_all_01_23::float), 'fm99D00%') "01_2023"
 FROM slots;

@@ -128,7 +128,7 @@ ORDER BY
     
 SELECT sum(pg_relation_size(relid))
 FROM pg_stat_user_indexes
-GROUP BY relname
+GROUP BY relname;
 
 SELECT
     idstat.relname AS TABLE_NAME,
@@ -156,7 +156,7 @@ WHERE
     indexdef !~* 'unique'
     and idstat.idx_scan = 0                                
 ORDER BY
-    pg_relation_size(indexrelid) DESC
+    pg_relation_size(indexrelid) DESC;
 	
 --- show tablespaces of tables ---	
 SELECT * 

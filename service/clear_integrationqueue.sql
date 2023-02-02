@@ -28,7 +28,7 @@ FROM integrationqueue;
 
 SELECT *
 FROM pg_indexes 
-WHERE tablename='integrationqueue_archive'
+WHERE tablename='task_history';
 
 CREATE INDEX integrationqueue_archive_resource__gin_jsquery ON public.integrationqueue_archive USING gin (resource jsonb_path_value_ops);
 CREATE INDEX integrationqueue_archive_ts ON public.integrationqueue_archive USING btree (ts);
