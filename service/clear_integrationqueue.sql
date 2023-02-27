@@ -12,16 +12,30 @@ LIMIT 1;
 INSERT INTO integrationqueue_archive
 (SELECT * FROM integrationqueue i WHERE resource @@ 'payload.resourceType="Patient"'::jsquery);
 
---DO
---$do$
---BEGIN
+INSERT INTO integrationqueue_archive (
+SELECT *
+FROM integrationqueue
+WHERE resource @@ 'payload.resourceType="Patient"'::jsquery
+  AND ts < '2023-02-01'::date
+  AND ts > '2023-01-01'::date
+);
+
+SELECT *
+FROM integrationqueue
+ORDER BY ts
+LIMIT 1;
+
+-- DO
+-- $do$
+-- BEGIN
 --   FOR i IN 0..10 LOOP
 --     RAISE NOTICE 'Calculate loop %', i;  
 --     DELETE FROM integrationqueue
---     WHERE ts < (('2022-10-01'::date + '44 days'::INTERVAL)::date + (i::text || ' days')::INTERVAL);
+--     WHERE ts < '2023-01-01'
+--       AND ts < (('2022-12-01'::date + '0 days'::INTERVAL)::date + (i::text || ' days')::INTERVAL);
 --   END LOOP;
---END;
---$do$;
+-- END;
+-- $do$;
 
 SELECT count(*)
 FROM integrationqueue;
@@ -36,3 +50,5 @@ CREATE INDEX integrationqueue_archive_ts ON public.integrationqueue_archive USIN
 SELECT (('2022-10-01'::date + '44 days'::INTERVAL)::date + (10::text || ' days')::INTERVAL);
   
 VACUUM ANALYZE integrationqueue;
+
+

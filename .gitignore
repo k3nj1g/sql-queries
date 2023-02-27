@@ -1,4 +1,5 @@
 .project
 .lsp
 .clj-kondo
-.vscode/settings.json
+.vscode/
+.dbeaver/

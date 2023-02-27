@@ -36,7 +36,7 @@ FROM
     LEFT JOIN pg_stat_all_indexes psai ON i.indexrelid = psai.indexrelid
 WHERE
     t.schemaname NOT IN ('pg_catalog', 'information_schema')
-    AND t.tablename = 'observation'
+    AND t.tablename = 'servicerequest'
 ORDER BY 1, 2;
 
 --Duplicate indexes
@@ -54,3 +54,9 @@ ORDER BY sum(pg_relation_size(idx)) DESC;
 SELECT *
 FROM pg_indexes
 WHERE tablename = 'observation';
+
+--Check index validity
+SELECT *
+FROM pg_class, pg_index
+WHERE pg_index.indisvalid = false
+  AND pg_index.indexrelid = pg_class.oid;

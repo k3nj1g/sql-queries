@@ -32,10 +32,10 @@ WITH pre AS (
                     (sch.resource#>>'{planningHorizon,end}'),
                     'infinity'
                 )
-            ) >= CAST('2023-01-25' AS timestamp)
+            ) >= CAST('2023-02-03' AS timestamp)
         )
         AND (
-            sch.resource @@ 'availableTime.#.channel.#="web" and location.id="3adf1b1a-9b61-4bf4-bf56-ff69645ce9fd"'::jsquery
+            sch.resource @@ 'availableTime.#.channel.#="web" and location.id="b347131b-f2d7-4042-855d-72fda740bc9b"'::jsquery
         )
 )
 SELECT pre.*

@@ -22,16 +22,15 @@ GROUP BY 1,
   2,
   3
 HAVING count(*) > 1;
-
 SELECT patient_fio(p.resource),
   resource->>'birthDate',
   count(*)
 FROM patient
 WHERE resource->>'birthDate' IS NOT NULL
   AND COALESCE((resource->>'active'), 'true') = 'true'
-GROUP BY 1, 2
+GROUP BY 1,
+  2
 HAVING count(*) > 1;
-
 SELECT jsonb_agg(
     jsonb_build_object(
       'id',
@@ -66,4 +65,57 @@ GROUP BY jsonb_path_query_first(
   ),
   p.resource#>>'{birthDate}'
 HAVING count(*) > 1
-  AND cardinality(array_agg(DISTINCT lower(patient_fio(p.resource)))) > 1;
+  AND cardinality(
+    array_agg(DISTINCT lower(patient_fio(p.resource)))
+  ) > 1;
+
+SELECT JSONB_BUILD_ARRAY(p.*) AS source,
+  JSONB_AGG(d.*) AS doubles
+FROM patient AS p
+  INNER JOIN patient AS d ON (
+    (
+      JSONB_PATH_QUERY_FIRST(
+        d.resource,
+        '$.identifier ? (!exists (@.period.end)) ? (@.system=="urn:identity:enp:Patient").value'
+      ) = JSONB_PATH_QUERY_FIRST(
+        p.resource,
+        '$.identifier ? (!exists (@.period.end)) ? (@.system=="urn:identity:enp:Patient").value'
+      )
+    )
+    OR (
+      JSONB_PATH_QUERY_FIRST(
+        d.resource,
+        '$.identifier[*] ? (@.system=="urn:identity:snils:Patient").value'
+      ) = JSONB_PATH_QUERY_FIRST(
+        p.resource,
+        '$.identifier[*] ? (@.system=="urn:identity:snils:Patient").value'
+      )
+    )
+  )
+  AND (
+    (d.resource->>'birthDate') = (p.resource->>'birthDate')
+  )
+  AND (
+    (
+      LOWER((d.resource#>>'{name,0,given,0}')) = LOWER((p.resource#>>'{name,0,given,0}'))
+    )
+    AND (
+      LOWER((d.resource#>>'{name,0,family}')) = LOWER((p.resource#>>'{name,0,family}'))
+    )
+    AND (
+      COALESCE(LOWER((d.resource#>>'{name,0,given,1}')), '') = COALESCE(LOWER((p.resource#>>'{name,0,given,1}')), '')
+    )
+  )
+  AND (d.id <> p.id)
+  AND (
+    COALESCE((d.resource#>>'{active}'), 'true') = 'true'
+  )
+WHERE (p.ts > 'yesterday')
+  AND (
+    COALESCE((p.resource#>>'{active}'), 'true') = 'true'
+  )
+GROUP BY p.id;
+
+SELECT count(*)
+FROM patient p
+WHERE (p.ts > 'yesterday');
