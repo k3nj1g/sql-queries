@@ -1,6 +1,6 @@
 SELECT *
 FROM integrationqueue_archive i 
-ORDER BY ts
+ORDER BY ts DESC
 LIMIT 1;
 
 SELECT *
@@ -16,8 +16,8 @@ INSERT INTO integrationqueue_archive (
 SELECT *
 FROM integrationqueue
 WHERE resource @@ 'payload.resourceType="Patient"'::jsquery
-  AND ts < '2023-02-01'::date
-  AND ts > '2023-01-01'::date
+  AND ts < '2023-03-01'::date
+  AND ts > '2023-02-01'::date
 );
 
 SELECT *
@@ -44,8 +44,8 @@ SELECT *
 FROM pg_indexes 
 WHERE tablename='task_history';
 
-CREATE INDEX integrationqueue_archive_resource__gin_jsquery ON public.integrationqueue_archive USING gin (resource jsonb_path_value_ops);
-CREATE INDEX integrationqueue_archive_ts ON public.integrationqueue_archive USING btree (ts);
+-- CREATE INDEX integrationqueue_archive_resource__gin_jsquery ON public.integrationqueue_archive USING gin (resource jsonb_path_value_ops);
+-- CREATE INDEX integrationqueue_archive_ts ON public.integrationqueue_archive USING btree (ts);
 
 SELECT (('2022-10-01'::date + '44 days'::INTERVAL)::date + (10::text || ' days')::INTERVAL);
   

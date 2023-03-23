@@ -84,7 +84,7 @@ SELECT TABLE_NAME
 ) a
 where row_estimate > 1000
 and table_schema = 'public'
-ORDER BY total_bytes DESC
+ORDER BY table_bytes DESC
 ;
 
 --- size of concrete index ---
@@ -162,7 +162,7 @@ ORDER BY
 SELECT * 
 FROM pg_tables 
 WHERE schemaname = 'public'
-ORDER BY tablename 
+ORDER BY tablename;
 
 --- show tables in tablespace ---
 SELECT 
@@ -173,3 +173,16 @@ FROM
     JOIN pg_tablespace t ON c.reltablespace = t.oid 
 WHERE 
   t.spcname = 'tblspc1';
+
+
+--- show tablespaces ---
+SELECT spcname,
+    pg_tablespace_location(oid)
+FROM pg_tablespace;
+
+---
+CREATE TABLESPACE tblspc3 LOCATION '/data/pg_tblspc/tblspc3';
+
+-- DROP TABLESPACE tblspc3;
+
+-- create table foo_bar(id text) tablespace tblspc3;
