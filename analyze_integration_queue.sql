@@ -44,7 +44,7 @@ WITH grouped as (
       , resource
   	, count(*)
   FROM integrationqueue i
-  WHERE i.ts > current_date
+  WHERE i.ts > '2023-03-23T07:00:00'
     and resource ->> 'clientId' = 'lis-galen'
   GROUP BY 1,2
   HAVING count(*) > 1)
@@ -53,14 +53,26 @@ SELECT resource #>> '{payload,identifier,0,value}'
 FROM grouped
 ORDER BY "count" DESC;
 
-SELECT count(*)
+-- by Nibaev --
+SELECT i.resource #>> '{payload,resourceType}' resourceType
+    , i.resource #>> '{payload,identifier,0,value}' idf
+	, count(*)
 FROM integrationqueue i
-WHERE i.ts BETWEEN '2021-01-11T00:00:00' AND '2021-01-11T23:59:59'
-	AND i.resource @@ 'status = "pending"'::jsquery;
+WHERE i.ts > '2023-03-23T07:00:00'
+  and resource ->> 'clientId' = 'rmis'
+GROUP BY 1, 2
+ORDER BY 3, 1 DESC;
 
-UPDATE integrationqueue
-SET resource = jsonb_set(resource, '{status}', '"failed"')
-WHERE id = '17b42bb5-0999-4615-9905-7ce077c4e211';
+SELECT *
+FROM integrationqueue
+WHERE ts > current_date and resource ->> 'status' = 'pending'
+ORDER BY ts
+limit 1;
+
+
+-- UPDATE integrationqueue
+-- SET resource = jsonb_set(resource, '{status}', '"failed"')
+-- WHERE id = '17b42bb5-0999-4615-9905-7ce077c4e211';
 --WHERE ts BETWEEN '2021-01-11T00:00:00' AND '2021-01-11T23:59:59'
 --	AND resource @@ 'status = "pending"'::jsquery
 	

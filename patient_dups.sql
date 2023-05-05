@@ -31,6 +31,7 @@ WHERE resource->>'birthDate' IS NOT NULL
 GROUP BY 1,
   2
 HAVING count(*) > 1;
+
 SELECT jsonb_agg(
     jsonb_build_object(
       'id',
