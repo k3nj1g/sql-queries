@@ -93,28 +93,29 @@ FROM patient AS p
       )
     )
   )
-  AND (
-    (d.resource->>'birthDate') = (p.resource->>'birthDate')
-  )
-  AND (
-    (
-      LOWER((d.resource#>>'{name,0,given,0}')) = LOWER((p.resource#>>'{name,0,given,0}'))
-    )
-    AND (
-      LOWER((d.resource#>>'{name,0,family}')) = LOWER((p.resource#>>'{name,0,family}'))
-    )
-    AND (
-      COALESCE(LOWER((d.resource#>>'{name,0,given,1}')), '') = COALESCE(LOWER((p.resource#>>'{name,0,given,1}')), '')
-    )
-  )
+  -- AND (
+  --   (d.resource->>'birthDate') = (p.resource->>'birthDate')
+  -- )
+  -- AND (
+  --   (
+  --     LOWER((d.resource#>>'{name,0,given,0}')) = LOWER((p.resource#>>'{name,0,given,0}'))
+  --   )
+  --   AND (
+  --     LOWER((d.resource#>>'{name,0,family}')) = LOWER((p.resource#>>'{name,0,family}'))
+  --   )
+  --   AND (
+  --     COALESCE(LOWER((d.resource#>>'{name,0,given,1}')), '') = COALESCE(LOWER((p.resource#>>'{name,0,given,1}')), '')
+  --   )
+  -- )
   AND (d.id <> p.id)
   AND (
     COALESCE((d.resource#>>'{active}'), 'true') = 'true'
   )
-WHERE (p.ts > 'yesterday')
-  AND (
+WHERE 
+  -- (p.ts > 'yesterday')
+  -- AND (
     COALESCE((p.resource#>>'{active}'), 'true') = 'true'
-  )
+  -- )
 GROUP BY p.id;
 
 SELECT count(*)
