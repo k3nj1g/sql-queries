@@ -2,10 +2,12 @@ SELECT *
 FROM pg_indexes 
 WHERE tablename='task_history';
 
-CREATE INDEX CONCURRENTLY task_history_cts ON task_history (cts);
+CREATE INDEX CONCURRENTLY documentreference_history_cts ON documentreference_history (cts);
+
+drop index documentreference_history_cts;
 
 SELECT cts
-FROM task_history
+FROM documentreference_history
 ORDER BY cts
 LIMIT 10;
 

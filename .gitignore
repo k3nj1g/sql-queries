@@ -3,3 +3,4 @@
 .clj-kondo
 .vscode/
 .dbeaver/
+*.session.sql
