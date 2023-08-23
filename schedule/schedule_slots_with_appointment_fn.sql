@@ -1,6 +1,4 @@
-DROP FUNCTION schedule_slots;
-
-CREATE OR REPLACE FUNCTION public.schedule_slots(sch_id text, "start" date, "end" date)
+CREATE OR REPLACE FUNCTION public.schedule_slots_with_appointment(sch_id text, "start" date, "end" date)
  RETURNS jsonb
  LANGUAGE sql
 AS $function$
@@ -97,28 +95,14 @@ SELECT (
   FROM (SELECT to_char(lower(slot.slot), 'YYYY-MM-DD"T"HH24:MI:SS') AS "begin"
           , to_char(upper(slot.slot), 'YYYY-MM-DD"T"HH24:MI:SS') AS "end"
           , slot.day_of_week
-          , slot.channel 
-        FROM checked_slot slot) s
+          , slot.channel
+          , to_jsonb(a) appointment
+        FROM checked_slot slot
+        LEFT JOIN appointment a 
+               ON (immutable_tsrange(a.resource#>>'{start}',a.resource#>>'{end}') && slot.slot 
+              AND a.resource -> 'schedule' ->> 'id' = sch_id
+              AND jsonb_path_query_first(a.resource, '$.appointmentType.coding ? (@.system=="http://terminology.hl7.org/CodeSystem/v2-0276").code') #>> '{}' = 'ROUTINE')) s
 ) c
 FROM schedulerule s 
 WHERE id = sch_id
-$function$;
-
-CREATE OR REPLACE FUNCTION public.schedule_slots(sch_id text, "start" date, "end" date, channel_arg text)
- RETURNS jsonb
- LANGUAGE sql
-AS $function$
-  SELECT jsonb_agg(slot.*)
-  FROM jsonb_array_elements(schedule_slots(sch_id, "start", "end")) slot
-  WHERE slot -> 'channel' ? channel_arg
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.schedule_slots(sch_id text, "start" date, "end" date, channel_arg text[])
- RETURNS jsonb
- LANGUAGE sql
-AS $function$
-  SELECT jsonb_agg(slot.*)
-  FROM jsonb_array_elements(schedule_slots(sch_id, "start", "end")) slot
-  WHERE slot -> 'channel' ?| channel_arg
 $function$;

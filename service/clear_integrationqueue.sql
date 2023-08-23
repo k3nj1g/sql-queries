@@ -10,7 +10,9 @@ ORDER BY ts
 LIMIT 1;
 
 INSERT INTO integrationqueue_archive
-(SELECT * FROM integrationqueue i WHERE resource @@ 'payload.resourceType="Patient"'::jsquery);
+(SELECT * FROM integrationqueue_y23w25 i WHERE resource @@ 'payload.resourceType="Patient"'::jsquery);
+
+-- DROP TABLE integrationqueue_y23w25;
 
 INSERT INTO integrationqueue_archive (
 SELECT *

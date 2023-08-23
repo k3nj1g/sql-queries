@@ -1,6 +1,6 @@
 DELETE
-FROM practitionerrole 
-WHERE resource #>> '{code,0,text}' SIMILAR TO 'Уборщик%|Буфетчик%|Администратор%|Буфетчица%|Заведующий складом%|Бухгалтер%|Уборщик производственных и служебных помещений%|Машинистка%|Заведующая складом%|Начальник%|Сестра-хозяйка%|Директор%';
+FROM practitionerrole
+WHERE lower(resource #>> '{code,0,text}') SIMILAR TO 'уборщик%|буфетчик%|администратор%|буфетчица%|заведующий складом%|бухгалтер%|уборщик производственных и служебных помещений%|машинистка%|заведующая складом%|начальник%|сестра-хозяйка%|директор|медицинский регистратор|дезинфектор|медицинский дезинфектор%';
 
 SELECT count(DISTINCT prr.*) FILTER (WHERE prr.resource @@ 'identifier.#.system="urn:source:frmr2:PractitionerRole"'::jsquery) frmr2
   , count(DISTINCT prr.*) FILTER (WHERE prr.resource @@ 'identifier.#.system="urn:identity:frmr:PractitionerRole"'::jsquery) frmr
@@ -16,7 +16,14 @@ SELECT count(*) FILTER (WHERE prr.resource @@ 'identifier.#.system="urn:source:f
 FROM practitionerrole prr
 WHERE COALESCE (prr.resource #>> '{period,end}', 'infinity')::date > current_date;
 
-SELECT *, prr - prr_frmr2, round((pr_frmr2::DECIMAL / pr) * 100.0, 2) pr_percent, round((prr_frmr2::DECIMAL / prr) * 100.0, 2) prr_percent
+SELECT org_name
+  , org_oid
+  , prr
+  , prr_frmr
+  , prr_frmr2
+  , prr - prr_frmr2 prr_diff
+  , round((pr_frmr2::DECIMAL / pr) * 100.0, 2) pr_percent
+  , round((prr_frmr2::DECIMAL / prr) * 100.0, 2) prr_percent
 FROM (SELECT 
   main_org.resource #>> '{alias,0}' org_name
   , jsonb_path_query_first(main_org.resource, '$.identifier ? (@.system == "urn:identity:oid:Organization").value') #>> '{}' org_oid
@@ -29,6 +36,7 @@ FROM organization main_org
 JOIN organization org ON org.resource @@ logic_revinclude(main_org.resource, main_org.id, 'mainOrganization') 
 JOIN practitionerrole prr ON prr.resource @@ logic_revinclude(org.resource, org.id, 'organization')
   AND COALESCE (prr.resource #>> '{period,end}', 'infinity')::date > current_date
+  and coalesce ((prr.resource ->> 'active'), 'true') = 'true'
 JOIN practitioner pr ON pr.resource @@ logic_include(prr.resource, 'practitioner')
 GROUP BY 1,2) c
 --WHERE main_org.resource @@ 'identifier.#.value = "1.2.643.5.1.13.13.12.2.21.1540"'::jsquery;
@@ -49,8 +57,9 @@ FROM organization main_org
 JOIN organization org ON org.resource @@ logic_revinclude(main_org.resource, main_org.id, 'mainOrganization') 
 JOIN practitionerrole prr ON prr.resource @@ logic_revinclude(org.resource, org.id, 'organization')
   AND COALESCE (prr.resource #>> '{period,end}', 'infinity')::date > current_date
+  and coalesce ((prr.resource ->> 'active'), 'true') = 'true'
 JOIN practitioner pr ON pr.resource @@ logic_include(prr.resource, 'practitioner')
-WHERE main_org.resource @@ 'identifier.#.value = "1.2.643.5.1.13.13.12.2.21.1537"'::jsquery
+WHERE main_org.resource @@ 'identifier.#.value = "1.2.643.5.1.13.13.12.2.21.1522"'::jsquery
 GROUP BY 1,2) c
 ORDER BY prr_percent DESC;
 
@@ -59,11 +68,11 @@ FROM organization main_org
 JOIN organization org ON org.resource @@ logic_revinclude(main_org.resource, main_org.id, 'mainOrganization') 
 JOIN practitionerrole prr ON prr.resource @@ logic_revinclude(org.resource, org.id, 'organization')
   AND COALESCE (prr.resource #>> '{period,end}', 'infinity')::date > current_date
-  AND NOT prr.resource @@ 'identifier.#.system="urn:identity:frmr:PractitionerRole"'::jsquery
-  AND prr.resource @@ 'identifier.#.system="urn:source:frmr2:PractitionerRole"'::jsquery
+  -- AND NOT prr.resource @@ 'identifier.#.system="urn:identity:frmr:PractitionerRole"'::jsquery
+  AND not prr.resource @@ 'identifier.#.system="urn:source:frmr2:PractitionerRole"'::jsquery
 JOIN practitioner pr ON pr.resource @@ logic_include(prr.resource, 'practitioner')
   -- AND NOT pr.resource @@ 'identifier.#.system="urn:source:frmr2:Practitioner"'::jsquery
-WHERE main_org.resource @@ 'identifier.#.value = "1.2.643.5.1.13.13.12.2.21.1523"'::jsquery;
+WHERE main_org.resource @@ 'identifier.#.value = "1.2.643.5.1.13.13.12.2.21.1522"'::jsquery;
 
 SELECT prr.resource ->> 'active', prr.resource -> 'period'
 FROM practitioner pr
@@ -86,6 +95,7 @@ FROM organization main_org
   JOIN practitionerrole prr
     ON prr.resource @@ logic_revinclude (org.resource,org.id,'organization')
    AND coalesce (prr.resource #>> '{period,end}','infinity')::date> current_date
+   and coalesce ((prr.resource ->> 'active'), 'true') = 'true'
   JOIN practitioner pr ON pr.resource @@ logic_include (prr.resource,'practitioner')
 WHERE 
   -- jsonb_path_query_first(prr.resource, '$.code.coding ? (@.system == "urn:CodeSystem:frmr.position").code') IS NULL
@@ -112,5 +122,47 @@ LEFT JOIN organization org
 LEFT JOIN organization main_org 
   ON main_org.resource @@ logic_include(org.resource, 'mainOrganization')
 WHERE COALESCE (prr.resource #>> '{period,end}','infinity')::DATE> CURRENT_DATE
+   and coalesce ((prr.resource ->> 'active'), 'true') = 'true'
    AND NOT prr.resource @@ 'identifier.#.system in ("urn:identity:frmr:PractitionerRole","urn:source:frmr2:PractitionerRole")'::jsquery
-ORDER BY 1, 2;   
+ORDER BY 1, 4;
+
+-- поиск должностей, которые ссылаются на несуществующее подразделение 
+SELECT *
+FROM (SELECT DISTINCT ON (prr.id) c.resource ->> 'display' main_org_name,
+             JSONB_PATH_QUERY_FIRST(pr.resource,'$.identifier? (@.system == "urn:identity:snils:Practitioner").value') #>> '{}' pr_snils,
+             patient_fio(pr.resource) pr_fio,
+             prr.resource #>> '{code,0,text}' prr_text,
+             SPLIT_PART(JSONB_PATH_QUERY_FIRST(prr.resource,'$.identifier ? (@.system=="urn:identity:mis-rmis:PractitionerRole").value') #>> '{}','_',2) org_oid,
+             ARRAY_TO_STRING ( (STRING_TO_ARRAY (SPLIT_PART (JSONB_PATH_QUERY_FIRST (prr.resource,'$.identifier ? (@.system=="urn:identity:mis-rmis:PractitionerRole").value') #>> '{}','_',2),'.'))[1:11],'.')
+      FROM practitionerrole prr
+        JOIN practitioner pr ON pr.resource @@ logic_include (prr.resource,'practitioner')
+        LEFT JOIN organization org ON org.resource @@ logic_include (prr.resource,'organization')
+        LEFT JOIN concept c
+               ON c.resource #>> '{system}' = 'urn:CodeSystem:mz.register-mo'
+              AND c.resource #>> '{code}' = ARRAY_TO_STRING ( (STRING_TO_ARRAY (SPLIT_PART (JSONB_PATH_QUERY_FIRST (prr.resource,'$.identifier ? (@.system=="urn:identity:mis-rmis:PractitionerRole").value') #>> '{}','_',2),'.'))[1:11],'.')
+      WHERE COALESCE(prr.resource #>> '{period,end}','infinity')::DATE> CURRENT_DATE
+      AND   COALESCE((prr.resource ->> 'active'),'true') = 'true'
+      AND   org IS NULL) "rows"
+ORDER BY 1,
+         3;
+
+-- поиск должностей, которые ссылаются на неактивное подразделение 
+SELECT *
+FROM (SELECT DISTINCT ON (prr.id) COALESCE(c.resource ->> 'display',main_org.resource #>> '{alias,0}') main_org_name,
+             JSONB_PATH_QUERY_FIRST(pr.resource,'$.identifier? (@.system == "urn:identity:snils:Practitioner").value') #>> '{}' pr_snils,
+             patient_fio(pr.resource) pr_fio,
+             prr.resource #>> '{code,0,text}' prr_text,
+             COALESCE(SPLIT_PART(JSONB_PATH_QUERY_FIRST(prr.resource,'$.identifier ? (@.system=="urn:identity:mis-rmis:PractitionerRole").value') #>> '{}','_',2),JSONB_PATH_QUERY_FIRST(org.resource,'$.identifier ? (@.system == "urn:identity:oid:Organization").value') #>> '{}') org_oid
+      FROM practitionerrole prr
+        JOIN practitioner pr ON pr.resource @@ logic_include (prr.resource,'practitioner')
+        JOIN organization org
+          ON org.resource @@ logic_include (prr.resource,'organization','and identifier.#.system="urn:source:1c:Organization"')
+         AND org.resource ->> 'active' = 'false'
+        LEFT JOIN organization main_org ON main_org.resource @@ logic_include (org.resource,'mainOrganization')
+        LEFT JOIN concept c
+               ON c.resource #>> '{system}' = 'urn:CodeSystem:frmo-1.2.643.5.1.13.13.99.2.114'
+              AND c.resource #>> '{code}' = ARRAY_TO_STRING ( (STRING_TO_ARRAY ('1.2.643.5.1.13.13.12.2.21.1537.0.478019','.'))[1:11],'.')
+      WHERE COALESCE(prr.resource #>> '{period,end}','infinity')::DATE> CURRENT_DATE
+      AND   COALESCE((prr.resource ->> 'active'),'true') = 'true') "rows"
+ORDER BY 1,
+         3

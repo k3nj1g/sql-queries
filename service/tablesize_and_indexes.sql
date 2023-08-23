@@ -45,8 +45,10 @@ join pg_tables pt
   on pt.tablename = pretty_sizes.tablename 
   ---and pt.schemaname = 'public'
   and pt.schemaname = pretty_sizes.tableschema
--- where pt.tablespace = 'defaul'
-order by pt.tablespace, pretty_sizes.table_size desc;
+where pt.tablespace = 'tblspc3'
+order by pt.tablename
+-- order by pt.tablespace, pretty_sizes.table_size desc
+;
 
 --- size with row estimated ---
 WITH RECURSIVE pg_inherit(inhrelid, inhparent) AS
