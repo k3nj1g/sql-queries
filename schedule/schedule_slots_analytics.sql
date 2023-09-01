@@ -6,13 +6,18 @@ WITH filtered AS (
   -- FROM (select * from schedulerule sch WHERE immutable_tsrange(sch.resource #>> '{planningHorizon,start}', COALESCE((sch.resource #>> '{planningHorizon,end}'::TEXT[]),'infinity'::TEXT)) && tsrange(current_date, current_date + INTERVAL '2 days', '[]') limit 100) sch
   JOIN healthcareservice hcs
     ON hcs.id = sch.resource #>> '{healthcareService,0,id}'
+  JOIN organization org
+    ON org.id = sch.resource #>> '{mainOrganization,id}'
+   AND identifier_value(org.resource, 'urn:identity:oid:Organization') = '1.2.643.5.1.13.13.12.2.21.1534'
   WHERE immutable_tsrange(sch.resource #>> '{planningHorizon,start}', COALESCE((sch.resource #>> '{planningHorizon,end}'::TEXT[]),'infinity'::TEXT)) 
-         && tsrange(current_date, current_date + INTERVAL '2 weeks', '[]'))
+         && tsrange(current_date, current_date + INTERVAL '2 weeks', '[]')
+    AND sch.resource->'actor' @@ '#.resourceType="PractitionerRole"'::jsquery
+    )
 , derived AS (
   SELECT *
-    , (SELECT jsonb_agg(slot) FROM jsonb_array_elements(slots_all) slots(slot) WHERE slot#>>'{appointment,id}' IS NOT NULL) slots_all_busy
-    , (SELECT jsonb_agg(slot) FROM jsonb_array_elements(slots_all) slots(slot) WHERE slot->'channel' ?| '{kc-mo,web,doctor}'::text[]) concurrent_slots
-    , (SELECT jsonb_agg(slot) FROM jsonb_array_elements(slots_all) slots(slot) WHERE slot#>>'{appointment,id}' IS NOT NULL AND slot->'channel' ?| '{kc-mo,web,doctor}'::text[]) slots_all_busy_concurrent
+    , (SELECT jsonb_agg(slot) FROM jsonb_array_elements(slots_all) slots(slot) WHERE slot#>>'{appointment,id}' IS NOT NULL AND NOT slot#>>'{appointment,resource,status}'='cancelled') slots_all_busy
+    , (SELECT jsonb_agg(slot) FROM jsonb_array_elements(slots_all) slots(slot) WHERE slot->'channel' @> '["kc-mo","web","doctor"]'::jsonb) concurrent_slots
+    , (SELECT jsonb_agg(slot) FROM jsonb_array_elements(slots_all) slots(slot) WHERE slot#>>'{appointment,id}' IS NOT NULL AND NOT slot#>>'{appointment,resource,status}'='cancelled' AND slot->'channel' @> '["kc-mo","web","doctor"]'::jsonb) slots_all_busy_concurrent
   FROM filtered)
 , slots_count AS (
   SELECT *
