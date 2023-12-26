@@ -10,21 +10,13 @@ ORDER BY ts
 LIMIT 1;
 
 INSERT INTO integrationqueue_archive
-(SELECT * FROM integrationqueue_y23w25 i WHERE resource @@ 'payload.resourceType="Patient"'::jsquery);
+(SELECT * FROM integrationqueue_y23w34 i WHERE resource @@ 'payload.resourceType="Patient"'::jsquery);
 
--- DROP TABLE integrationqueue_y23w25;
-
-INSERT INTO integrationqueue_archive (
-SELECT *
-FROM integrationqueue
-WHERE resource @@ 'payload.resourceType="Patient"'::jsquery
-  AND ts < '2023-03-01'::date
-  AND ts > '2023-02-01'::date
-);
+DROP TABLE integrationqueue_y23w34;
 
 SELECT *
-FROM integrationqueue
-ORDER BY ts
+FROM integrationqueue_archive
+ORDER BY ts desc 
 LIMIT 1;
 
 -- DO
@@ -44,7 +36,7 @@ FROM integrationqueue;
 
 SELECT *
 FROM pg_indexes 
-WHERE tablename='task_history';
+WHERE tablename='appointment_history';
 
 -- CREATE INDEX integrationqueue_archive_resource__gin_jsquery ON public.integrationqueue_archive USING gin (resource jsonb_path_value_ops);
 -- CREATE INDEX integrationqueue_archive_ts ON public.integrationqueue_archive USING btree (ts);
