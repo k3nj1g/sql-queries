@@ -18,9 +18,10 @@ FROM public.servicerequest sr
 WHERE sr.resource @> '{ "locationCode": [{"coding":[{"system":"urn:CodeSystem:mis.medical-help-type", "code": "Амбулаторн"}]}]}'
 LIMIT 1000;
 
-SELECT *
+SELECT 1
 FROM public.servicerequest
-WHERE resource @> '{"locationCode": [{"coding":[{"system":"urn:CodeSystem:mis.medical-help-type", "code": "Амбулаторн"}]}]}';
+WHERE resource @> '{"locationCode": [{"coding":[{"system":"urn:CodeSystem:mis.medical-help-type", "code": "Стационарн"}]}]}'
+LIMIT 1;
 
 WITH to_update AS (
   SELECT id, jsonb_set_lax(

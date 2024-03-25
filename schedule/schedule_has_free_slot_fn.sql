@@ -1,10 +1,8 @@
--- DROP FUNCTION public.schedule_slots(text, date, date);
-
-CREATE OR REPLACE FUNCTION public.schedule_slots_with_appointment(sch_id text, start date, "end" date)
- RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.schedule_has_free_slot(sch_id TEXT, channel_av TEXT[]) 
+ RETURNS boolean
  LANGUAGE sql
 AS $function$
-SELECT (
+SELECT EXISTS(
   WITH global_schedule AS (
     SELECT id,
            jsonb_set(
@@ -31,8 +29,8 @@ SELECT (
     SELECT tsrange(CAST(not_available.value ->> 'start' AS timestamp), CAST((CAST(not_available.value ->> 'end' AS timestamp) + INTERVAL '1 minute') AS timestamp)) AS "range" 
     FROM not_available)
   , init_interval AS 
-    (SELECT (tsrange(timezone('Europe/Moscow', "start"), timezone('Europe/Moscow', "end")) * 
-            tsrange(CAST(resource #>> '{planningHorizon,start}' AS timestamp), CAST(resource #>> '{planningHorizon,end}' AS timestamp))) AS "interval")
+    (SELECT tsrange(CAST(resource #>> '{planningHorizon,start}' AS timestamp), CAST(resource #>> '{planningHorizon,end}' AS timestamp)) 
+      * tsrange(timezone('Europe/Moscow',current_timestamp), (CAST((timezone('Europe/Moscow',current_timestamp) + CAST((format('%s %s', resource#>>'{planningActive,quantity}', resource#>>'{planningActive,type}')) AS INTERVAL)) AS date) + '1 day'::interval)) AS "interval")
   , series_of_day AS 
   (SELECT cast(generate_series
                 (lower((SELECT "interval" FROM init_interval LIMIT 1))
@@ -80,7 +78,7 @@ SELECT (
       , day_of_week
       , channel
       , available_time 
-    FROM series_of_available_time 
+    FROM series_of_available_time
   )
   , checked_slot AS (
     SELECT slot.slot
@@ -91,20 +89,18 @@ SELECT (
            ON not_available."range" && slot.slot 
     WHERE not_available IS NULL 
       AND slot.available_time @> slot.slot 
-      AND (SELECT "interval" FROM init_interval LIMIT 1) @> slot.slot)
-  SELECT jsonb_agg(row_to_json(s.*))
-  FROM (SELECT to_char(lower(slot.slot), 'YYYY-MM-DD"T"HH24:MI:SS') AS "begin"
-          , to_char(upper(slot.slot), 'YYYY-MM-DD"T"HH24:MI:SS') AS "end"
-          , slot.day_of_week
-          , slot.channel 
-          , ((SELECT jsonb_agg(to_jsonb(a))
-                       FROM appointment a
-                       WHERE (immutable_tsrange(a.resource#>>'{start}',a.resource#>>'{end}') && slot.slot 
-                         AND a.resource -> 'schedule' ->> 'id' = sch_id
-                         AND jsonb_path_query_first(a.resource, '$.appointmentType.coding ? (@.system=="http://terminology.hl7.org/CodeSystem/v2-0276").code') #>> '{}' = 'ROUTINE'))) appointment
-        FROM checked_slot slot) s
+      AND (SELECT "interval" FROM init_interval LIMIT 1) @> slot.slot
+      AND slot.channel ?| channel_av
+      )
+  SELECT 1
+  FROM checked_slot slot
+  LEFT JOIN appointment a
+    ON (immutable_tsrange(a.resource#>>'{start}',a.resource#>>'{end}') && slot.slot 
+      AND a.resource -> 'schedule' ->> 'id' = sch_id
+      AND jsonb_path_query_first(a.resource, '$.appointmentType.coding ? (@.system=="http://terminology.hl7.org/CodeSystem/v2-0276").code') #>> '{}' = 'ROUTINE')
+  WHERE a IS NULL
+  LIMIT 1
 ) c
 FROM schedulerule s 
 WHERE id = sch_id
-$function$
-;
+$function$;

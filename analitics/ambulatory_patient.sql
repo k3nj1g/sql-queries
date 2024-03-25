@@ -35,7 +35,7 @@ SELECT * FROM "temp".encounter_ambulatory_patients;
   
   SELECT REFERENCE_VALUE("jsonb_select_keys",'subject'), (("jsonb_select_keys" #>> '{subject,identifier,system}') || ("jsonb_select_keys" #>> '{subject,identifier,system}'))
 FROM "temp".encounter_ambulatory
--- JOIN patient p 
---  ON ((p.resource @@ LOGIC_INCLUDE(sr.resource, 'subject')) 
---  AND JSONB_PATH_EXISTS(p.resource, CAST(CONCAT('$.identifier ? (@.system == ', (sr.resource #> '{subject,identifier,system}'), ' && @.value == ', (sr.resource #> '{subject,identifier,value}'), ' && (!exists(@.period.end) || @.period.end.datetime() > \"', current_date, '\".datetime()))') AS jsonpath)))
---  OR (p.id = ANY(ARRAY((SELECT (JSONB_PATH_QUERY(sr.resource, '$.subject.id') #>> '{}')))))
+JOIN patient p 
+ ON ((p.resource @@ LOGIC_INCLUDE(sr.resource, 'subject')) 
+ AND JSONB_PATH_EXISTS(p.resource, CAST(CONCAT('$.identifier ? (@.system == ', (sr.resource #> '{subject,identifier,system}'), ' && @.value == ', (sr.resource #> '{subject,identifier,value}'), ' && (!exists(@.period.end) || @.period.end.datetime() > \"', current_date, '\".datetime()))') AS jsonpath)))
+ OR (p.id = ANY(ARRAY((SELECT (JSONB_PATH_QUERY(sr.resource, '$.subject.id') #>> '{}')))))

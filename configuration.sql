@@ -1,0 +1,1 @@
+ALTER USER rmis IN DATABASE rmis SET enable_seqscan=off;
