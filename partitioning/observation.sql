@@ -9,18 +9,19 @@ CREATE TABLE public.observation_new (
 	resource jsonb NOT NULL,
 	CONSTRAINT observation_new_pkey PRIMARY KEY (id)
 )
-PARTITION BY RANGE (id);
+PARTITION BY RANGE (id)
+TABLESPACE tblspc6;
 
 -- создаём индексы на новую таблицу 
-CREATE INDEX observation_new_cts__btree ON public.observation_new USING btree (cts);
-CREATE INDEX observation_new_resource__gin_jsquery ON public.observation_new USING gin (resource jsonb_path_value_ops);
-CREATE INDEX observation_new_resource_effective_datetime ON public.observation_new USING btree (((resource #>> '{effective,dateTime}'::text[])));
-CREATE INDEX observation_new_resource_eoc__pregnant ON public.observation_new USING gin (((resource -> 'episodeOfCare'::text)) jsonb_path_value_ops) WHERE ((resource -> 'category'::text) @@ '#."coding".#("system" = "urn:CodeSystem:pregnancy" AND "code" = "current-pregnancy")'::jsquery);
-CREATE INDEX observation_new_resource_identifier__gin ON public.observation_new USING gin (knife_extract_text(resource, '[["identifier", "value"]]'::jsonb));
-CREATE INDEX observation_new_resource_period_patient_condition__gist ON public.observation_new USING gist (immutable_tsrange((resource #>> '{effective,Period,start}'::text[]), (resource #>> '{effective,Period,end}'::text[]), '[]'::text)) WHERE (resource @@ '("category".#."coding".#("system" = "urn:CodeSystem:observation-category" AND "code" = "patient-condition") AND "value"."CodeableConcept"."coding".#("system" = "urn:CodeSystem:1.2.643.5.1.13.13.11.1006" AND "code" IN ("3", "4", "6")))'::jsquery);
-CREATE INDEX observation_new_resource_subject_ref_valid ON public.observation_new USING btree (enp_valid((resource #>> '{subject,identifier,value}'::text[]))) WHERE (resource @@ '"subject"."identifier"."system" = "urn:identity:insurance-gov:Patient"'::jsquery);
-CREATE INDEX observation_new_ts__btree ON public.observation_new USING btree (ts);
-CREATE INDEX observation_new_txid__btree ON public.observation_new USING btree (txid);
+CREATE INDEX observation_new_cts__btree ON public.observation_new USING btree (cts) TABLESPACE tblspc6;
+CREATE INDEX observation_new_resource__gin_jsquery ON public.observation_new USING gin (resource jsonb_path_value_ops) TABLESPACE tblspc6;
+CREATE INDEX observation_new_resource_effective_datetime ON public.observation_new USING btree (((resource #>> '{effective,dateTime}'::text[]))) TABLESPACE tblspc6;
+CREATE INDEX observation_new_resource_eoc__pregnant ON public.observation_new USING gin (((resource -> 'episodeOfCare'::text)) jsonb_path_value_ops) WHERE ((resource -> 'category'::text) @@ '#."coding".#("system" = "urn:CodeSystem:pregnancy" AND "code" = "current-pregnancy")'::jsquery) TABLESPACE tblspc6;
+CREATE INDEX observation_new_resource_identifier__gin ON public.observation_new USING gin (knife_extract_text(resource, '[["identifier", "value"]]'::jsonb)) TABLESPACE tblspc6;
+CREATE INDEX observation_new_resource_period_patient_condition__gist ON public.observation_new USING gist (immutable_tsrange((resource #>> '{effective,Period,start}'::text[]), (resource #>> '{effective,Period,end}'::text[]), '[]'::text)) WHERE (resource @@ '("category".#."coding".#("system" = "urn:CodeSystem:observation-category" AND "code" = "patient-condition") AND "value"."CodeableConcept"."coding".#("system" = "urn:CodeSystem:1.2.643.5.1.13.13.11.1006" AND "code" IN ("3", "4", "6")))'::jsquery) TABLESPACE tblspc6;
+CREATE INDEX observation_new_resource_subject_ref_valid ON public.observation_new USING btree (enp_valid((resource #>> '{subject,identifier,value}'::text[]))) WHERE (resource @@ '"subject"."identifier"."system" = "urn:identity:insurance-gov:Patient"'::jsquery) TABLESPACE tblspc6;
+CREATE INDEX observation_new_ts__btree ON public.observation_new USING btree (ts) TABLESPACE tblspc6;
+CREATE INDEX observation_new_txid__btree ON public.observation_new USING btree (txid) TABLESPACE tblspc6;
 
 -- создаём партиции
 CREATE TABLE observation_y2024before PARTITION OF observation_new
